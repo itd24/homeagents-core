@@ -1,0 +1,42 @@
+services:  
+  litellm:
+    # Pinned to a real release tag, NOT main-stable / latest. main-stable
+    # moves every week with no changelog gate on your side — that silently
+    # breaks the "nothing changes unless I change it" reproducibility
+    # contract. Bump this deliberately; check https://github.com/BerriAI/litellm/releases
+    # before doing so, since the versioning scheme changed in 2026 (plain
+    # MINOR.PATCH now, no more "-stable" suffix).
+    image: ghcr.io/berriai/litellm:v1.98.0
+    container_name: litellm
+    restart: unless-stopped
+    networks: [ai-platform-net]
+    # Loopback only, like every other published port in this repository. Callers
+    # on ai-platform-net reach it as litellm:4000 and never touch this binding.
+    # Dify runs on its own network and needs http://host.docker.internal:4000/v1;
+    # that works on Docker Desktop (this platform's target) because it proxies the
+    # host loopback. On a plain Linux host, publish 4000 on the bridge address
+    # instead, or Dify cannot see the gateway.
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./config/litellm/config.yaml:/app/config.yaml:ro
+    environment:
+      - DATABASE_URL=postgresql://litellm:${POSTGRES_PASSWORD}@postgres:5432/litellm
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - ZAI_API_KEY=${ZAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  ai-platform-net:
+    external: true

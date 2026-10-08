@@ -1,0 +1,8 @@
+# Never commit real secrets - only .env-example belongs in git.
+.env
+
+# Docker bind-mount data (Qdrant, Postgres, Redis, TEI and OpenHands caches).
+# The directory is kept in git via .gitkeep so a fresh clone has the paths the
+# compose files expect.
+VOLUMES/*
+!VOLUMES/.gitkeep

@@ -1,0 +1,31 @@
+services:
+  openhands:
+    image: ghcr.io/openhands/openhands:latest
+    container_name: openhands-app
+    restart: unless-stopped
+
+    ports:
+      # Loopback only: the browser UI is opened at http://localhost:3000 and
+      # nothing else on the LAN needs to reach this container.
+      - "127.0.0.1:3000:3000"
+
+    environment:
+      LOG_ALL_EVENTS: "true"
+      SANDBOX_ADDITIONAL_NETWORKS: "ai-platform-net"
+      SANDBOX_VOLUMES: "${PROJECTS_PATH}:/workspace/project:rw"
+
+    volumes:
+      - ../VOLUMES/openhands_data/conversations:/home/openhands/.openhands
+      - ../VOLUMES/openhands_data/.openhands:/.openhands
+      - ${PROJECTS_PATH:-}:/projects
+      # Required by OpenHands to create/manage the runtime container
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ai-platform-net
+
+networks:
+  ai-platform-net:
+    external: true

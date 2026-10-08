@@ -1,0 +1,72 @@
+services:
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant
+    restart: unless-stopped
+    networks: [ai-platform-net]
+    ports:
+      - "127.0.0.1:${QDRANT_PORT:-6333}:6333"
+    volumes:
+      - ../VOLUMES/qdrant_data:/qdrant/storage
+
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    container_name: tei-embeddings
+    restart: unless-stopped
+    networks: [ai-platform-net]
+    command: ["--model-id", "${EMBEDDINGS_MODEL:-BAAI/bge-m3}"]
+    ports:
+      - "127.0.0.1:${TEI_PORT:-8081}:80"
+    volumes:
+      - ../VOLUMES/tei_cache:/data
+
+  qdrant-mcp:
+    # Image is built and tagged from the homeagents-mcp-servers repository
+    # (qdrant/ folder):  docker build -t qdrant-mcp:latest qdrant
+    image: qdrant-mcp:latest
+    container_name: qdrant-mcp
+    restart: unless-stopped
+    networks: [ai-platform-net]
+    depends_on:
+      - qdrant
+      - embeddings
+    ports:
+      - "127.0.0.1:${QDRANT_MCP_PORT:-8765}:8765"
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - EMBEDDINGS_URL=http://embeddings:80
+      - COLLECTION_NAME=${COLLECTION_NAME:-memory}
+
+  postgres:
+    image: postgres:18
+    container_name: homeagents-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ../VOLUMES/postgres_data:/var/lib/postgresql
+    networks: [ai-platform-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: litellm-redis
+    restart: unless-stopped
+    networks: [ai-platform-net]
+    volumes:
+      - ../VOLUMES/redis_data:/data
+    # RDB snapshot every 60s if >=1 key changed, PLUS an append-only log.
+    # AOF is the one that actually protects budget counters on an unclean
+    # restart or crash, and the LiteLLM/Redis counter interaction has had bugs
+    # upstream, so re-check your budget totals after a hard restart.
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  ai-platform-net:
+    external: true

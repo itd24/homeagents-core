@@ -1,0 +1,26 @@
+# =============================================================================
+# Firefly III MCP server (Streamable HTTP)
+# Self-contained on purpose: it declares its own external network, so it runs
+# alone (homeagents finance run) or can be appended to any -f chain.
+# Endpoint inside the network: http://firefly-mcp:3000/mcp (health: /health).
+# LibreChat reaches it via librechat-deployment/config/librechat/librechat.yaml, which lists
+# "firefly-mcp:3000" in mcpSettings.allowedAddresses (SSRF guard).
+# =============================================================================
+services:
+  firefly-mcp:
+    image: ghcr.io/vedantjain8/firefly-iii-mcp:latest
+    container_name: firefly-mcp
+    restart: unless-stopped
+    environment:
+      FIREFLY_URL: ${FIREFLY_URL}
+      FIREFLY_TOKEN: ${FIREFLY_TOKEN}
+    ports:
+      # Loopback only. LibreChat reaches this server as firefly-mcp:3000 over
+      # ai-platform-net and does not need the host port at all.
+      - "127.0.0.1:3002:3000"
+    networks:
+      - ai-platform-net
+
+networks:
+  ai-platform-net:
+    external: true

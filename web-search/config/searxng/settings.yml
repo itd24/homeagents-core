@@ -1,0 +1,17 @@
+# Read the documentation before extending the defaults:
+# https://docs.searxng.org/admin/settings/
+
+use_default_settings:
+  engines:
+    remove:
+      - wikidata
+      - ahmia
+      - torch
+
+server:
+  # Never put a real key in version control. The container receives SEARXNG_SECRET
+  # from the environment (websearch.yml passes it through from .env), and SearXNG
+  # lets that environment variable override the placeholder below.
+  # Generate one with:  python -c "import secrets; print(secrets.token_urlsafe(32))"
+  secret_key: "change-me-searxng-secret"
+  image_proxy: true
